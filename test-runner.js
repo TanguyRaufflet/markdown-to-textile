@@ -2,254 +2,207 @@
 
 /**
  * Test runner for Markdown to Textile converter
- * Tests various Markdown examples and shows conversion results
+ * Runs assertion-based tests and reports results
  */
 
-const fs = require('fs');
-const path = require('path');
+const MarkdownToTextile = require('./markdown-to-textile/markdown-to-textile.js');
 
-// Import the converter (simulate browser environment)
-const converterPath = './markdown-to-textile/markdown-to-textile.js';
-const converterCode = fs.readFileSync(converterPath, 'utf8');
+const converter = new MarkdownToTextile();
 
-// Create a minimal browser-like environment
-global.window = global;
-global.document = {};
-
-// Execute the converter code in a sandbox
-const vm = require('vm');
-const sandbox = {
-  console: console,
-  window: {},
-  document: {},
-  require: require
-};
-
-vm.createContext(sandbox);
-vm.runInContext(converterCode, sandbox);
-
-// Extract the MarkdownToTextile class
-const MarkdownToTextile = sandbox.window.MarkdownToTextile;
-
-// Test cases with expected results
-const testCases = [
+const testSuites = [
   {
-    name: "Basic Headers",
-    input: "# H1 Header\n## H2 Header\n### H3 Header",
-    description: "Should convert headers with newlines"
+    suite: 'Headers',
+    tests: [
+      ['# H1', 'h1. H1\n'],
+      ['## H2', 'h2. H2\n'],
+      ['### H3', 'h3. H3\n'],
+      ['#### H4', 'h4. H4\n'],
+      ['##### H5', 'h5. H5\n'],
+      ['###### H6', 'h6. H6\n'],
+    ]
   },
   {
-    name: "Text Emphasis", 
-    input: "**Bold text** and *italic text* and ~~strikethrough~~",
-    description: "Should convert emphasis correctly"
+    suite: 'Emphasis',
+    tests: [
+      ['**bold**', '*bold*'],
+      ['*italic*', '_italic_'],
+      ['__bold alt__', '*bold alt*'],
+      ['_italic alt_', '_italic alt_'],
+      ['**bold** and *italic*', '*bold* and _italic_'],
+      ['**bold _mixed_ text**', '*bold _mixed_ text*'],
+      ['~~strikethrough~~', '-strikethrough-'],
+    ]
   },
   {
-    name: "Code Blocks",
-    input: "```javascript\nfunction test() {\n  return true;\n}\n```",
-    description: "Should use bc(javascript). syntax"
+    suite: 'Lists - flat',
+    tests: [
+      ['- Item 1', '* Item 1'],
+      ['* Item 1', '* Item 1'],
+      ['1. First', '# First'],
+      ['2. Second', '# Second'],
+    ]
   },
   {
-    name: "Simple Table",
-    input: "| Name | Age |\n|------|-----|\n| John | 25  |",
-    description: "Should convert to Textile table format"
+    suite: 'Lists - nested',
+    tests: [
+      ['- A\n  - B\n    - C', '* A\n** B\n*** C'],
+      ['1. A\n  1. B\n    1. C', '# A\n## B\n### C'],
+    ]
   },
   {
-    name: "Table with Alignment",
-    input: "| Left | Center | Right |\n|:-----|:------:|------:|\n| A | B | C |",
-    description: "Should handle alignment with _., =., >. syntax"
+    suite: 'Task lists',
+    tests: [
+      ['- [x] Done', '* {color:green}(/){color} Done'],
+      ['- [ ] Open', '* {color:red}(x){color} Open'],
+      ['  - [x] Nested done', '** {color:green}(/){color} Nested done'],
+      ['  - [ ] Nested open', '** {color:red}(x){color} Nested open'],
+      ['- [X] Case insensitive', '* {color:green}(/){color} Case insensitive'],
+    ]
   },
   {
-    name: "Lists",
-    input: "- Item 1\n- Item 2\n\n1. First\n2. Second",
-    description: "Should convert list markers"
+    suite: 'Links and Images',
+    tests: [
+      ['[text](http://example.com)', '"text":http://example.com'],
+      ['![alt](image.png)', '!image.png(alt)!'],
+      ['![](image.png)', '!image.png()!'],
+      ['Before ![img](url) after', 'Before !url(img)! after'],
+      ['[link](url) and ![img](url2)', '"link":url and !url2(img)!'],
+    ]
   },
   {
-    name: "Links and Images",
-    input: "[Link](https://example.com) and ![Alt](image.jpg)",
-    description: "Should convert links and images"
+    suite: 'Code',
+    tests: [
+      ['`inline code`', '@inline code@'],
+      ['```\nplain code\n```', 'bc. plain code\n'],
+      ['```javascript\nvar x = 1;\n```', 'bc(javascript). var x = 1;\n'],
+    ]
   },
   {
-    name: "Blockquote",
-    input: "> This is a quote\n> Second line",
-    description: "Should use bq. syntax"
+    suite: 'Blockquotes',
+    tests: [
+      ['> single quote', 'bq. single quote'],
+      ['>> nested quote', 'bq(2). nested quote'],
+      ['>>> deep quote', 'bq(3). deep quote'],
+    ]
   },
   {
-    name: "Inline Code",
-    input: "Use `console.log()` for debugging",
-    description: "Should use @code@ syntax"
+    suite: 'Footnotes',
+    tests: [
+      ['Text[^1]', 'Text[1]'],
+      ['[^1]: Footnote text', 'fn1. Footnote text'],
+      ['See[^1] and[^2]', 'See[1] and[2]'],
+    ]
   },
   {
-    name: "Mixed Content",
-    input: "# Title\n\n**Bold** text with `code` and [link](url).\n\n- List item\n- Another item",
-    description: "Should handle mixed content correctly"
-  }
+    suite: 'Definition lists',
+    tests: [
+      ['Term\n: Definition', '- Term := Definition'],
+    ]
+  },
+  {
+    suite: 'Misc',
+    tests: [
+      ['---', '---'],
+    ]
+  },
+  {
+    suite: 'Tables',
+    tests: [
+      [
+        '| Name | Age |\n|------|-----|\n| John | 25 |',
+        '|_. Name|_. Age|\n|John|25|'
+      ],
+      [
+        '| Left | Center | Right |\n|:-----|:------:|------:|\n| A | B | C |',
+        '|_. Left|=. Center|>. Right|\n|A|=. B|>. C|'
+      ],
+    ]
+  },
+  {
+    suite: 'Input validation',
+    tests: [
+      ['empty string', () => converter.convert('') === ''],
+      ['non-string throws', () => {
+        try { converter.convert(123); return false; }
+        catch (e) { return e.message.includes('must be a string'); }
+      }],
+      ['null throws', () => {
+        try { converter.convert(null); return false; }
+        catch (e) { return e.message.includes('must be a string'); }
+      }],
+      ['oversized throws', () => {
+        try { converter.convert('x'.repeat(500001)); return false; }
+        catch (e) { return e.message.includes('maximum length'); }
+      }],
+      ['max valid size', () => {
+        try { converter.convert('x'.repeat(500000)); return true; }
+        catch (e) { return false; }
+      }],
+    ]
+  },
+  {
+    suite: 'Mixed content',
+    tests: [
+      [
+        '# Title\n\n**Bold** with `code` and [link](url).\n\n- Item 1\n- Item 2',
+        'h1. Title\n\n\n*Bold* with @code@ and "link":url.\n* Item 1\n* Item 2'
+      ],
+    ]
+  },
 ];
 
-/**
- * Run a single test case
- */
-function runTest(testCase) {
-  try {
-    if (!MarkdownToTextile) {
-      throw new Error('MarkdownToTextile class not loaded');
-    }
-    
-    const converter = new MarkdownToTextile();
-    const result = converter.convert(testCase.input);
-    
-    return {
-      passed: true,
-      result: result,
-      error: null
-    };
-  } catch (error) {
-    return {
-      passed: false,
-      result: null,
-      error: error.message
-    };
-  }
-}
+// Run tests
+let totalPass = 0;
+let totalFail = 0;
+const failures = [];
 
-/**
- * Format output for display
- */
-function formatOutput(text) {
-  return text.split('\n').map(line => `  ${line}`).join('\n');
-}
+testSuites.forEach(({ suite, tests }) => {
+  let suitePass = 0;
+  let suiteFail = 0;
 
-/**
- * Display test results
- */
-function displayResults(testCase, testResult) {
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`🧪 TEST: ${testCase.name}`);
-  console.log(`📝 ${testCase.description}`);
-  console.log(`${'='.repeat(60)}`);
-  
-  console.log('\n📥 INPUT:');
-  console.log(formatOutput(testCase.input));
-  
-  if (testResult.passed) {
-    console.log('\n📤 OUTPUT:');
-    console.log(formatOutput(testResult.result));
-    console.log('\n✅ Status: PASSED');
-  } else {
-    console.log('\n❌ Status: FAILED');
-    console.log(`🚨 Error: ${testResult.error}`);
-  }
-}
+  tests.forEach(([input, expected]) => {
+    let passed;
 
-/**
- * Run all tests
- */
-function runAllTests() {
-  console.log('🚀 Markdown to Textile Converter Test Runner');
-  console.log(`📊 Running ${testCases.length} test cases...\n`);
-  
-  let passed = 0;
-  let failed = 0;
-  
-  testCases.forEach((testCase, index) => {
-    const result = runTest(testCase);
-    displayResults(testCase, result);
-    
-    if (result.passed) {
-      passed++;
+    if (typeof expected === 'function') {
+      // Custom assertion function
+      passed = expected();
     } else {
-      failed++;
+      const result = converter.convert(input);
+      passed = result.trim() === expected.trim();
+      if (!passed) {
+        failures.push({
+          suite,
+          input,
+          expected: expected.trim(),
+          got: result.trim()
+        });
+      }
+    }
+
+    if (passed) {
+      suitePass++;
+      totalPass++;
+    } else {
+      suiteFail++;
+      totalFail++;
     }
   });
-  
-  // Summary
-  console.log(`\n${'='.repeat(60)}`);
-  console.log('📈 TEST SUMMARY');
-  console.log(`${'='.repeat(60)}`);
-  console.log(`✅ Passed: ${passed}`);
-  console.log(`❌ Failed: ${failed}`);
-  console.log(`📊 Total:  ${testCases.length}`);
-  
-  if (failed === 0) {
-    console.log('\n🎉 All tests passed!');
-  } else {
-    console.log(`\n⚠️  ${failed} test(s) failed. Please review the output above.`);
-  }
-  
-  return failed === 0;
-}
 
-/**
- * Interactive mode - test custom input
- */
-function interactiveMode() {
-  const readline = require('readline');
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
+  const status = suiteFail === 0 ? 'PASS' : 'FAIL';
+  console.log(`  ${status}  ${suite} (${suitePass}/${suitePass + suiteFail})`);
+});
+
+// Summary
+console.log(`\n${'─'.repeat(40)}`);
+console.log(`  ${totalPass} passed, ${totalFail} failed, ${totalPass + totalFail} total`);
+
+if (failures.length > 0) {
+  console.log('\nFailures:\n');
+  failures.forEach(({ suite, input, expected, got }) => {
+    console.log(`  ${suite}: ${JSON.stringify(input)}`);
+    console.log(`    Expected: ${JSON.stringify(expected)}`);
+    console.log(`    Got:      ${JSON.stringify(got)}\n`);
   });
-  
-  console.log('\n🎮 Interactive Mode');
-  console.log('Enter Markdown text to convert (type "exit" to quit):\n');
-  
-  function promptUser() {
-    rl.question('markdown> ', (input) => {
-      if (input.toLowerCase() === 'exit') {
-        rl.close();
-        return;
-      }
-      
-      try {
-        const converter = new MarkdownToTextile();
-        const result = converter.convert(input);
-        console.log('\n📤 Textile output:');
-        console.log(formatOutput(result));
-        console.log('');
-      } catch (error) {
-        console.log(`❌ Error: ${error.message}\n`);
-      }
-      
-      promptUser();
-    });
-  }
-  
-  promptUser();
 }
 
-/**
- * Main function
- */
-function main() {
-  const args = process.argv.slice(2);
-  
-  if (args.includes('--help') || args.includes('-h')) {
-    console.log(`
-📋 Markdown to Textile Test Runner
-
-Usage:
-  node test-runner.js [options]
-
-Options:
-  --interactive, -i    Run in interactive mode
-  --help, -h          Show this help
-
-Examples:
-  node test-runner.js              # Run all tests
-  node test-runner.js -i           # Interactive mode
-`);
-    return;
-  }
-  
-  if (args.includes('--interactive') || args.includes('-i')) {
-    interactiveMode();
-  } else {
-    const success = runAllTests();
-    process.exit(success ? 0 : 1);
-  }
-}
-
-// Run if called directly
-if (require.main === module) {
-  main();
-}
-
-module.exports = { runTest, testCases };
+process.exit(totalFail === 0 ? 0 : 1);

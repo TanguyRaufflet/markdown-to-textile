@@ -12,27 +12,40 @@ class MarkdownToTextile {
       { pattern: /^##### (.+)$/gm, replacement: 'h5. $1\n' },
       { pattern: /^###### (.+)$/gm, replacement: 'h6. $1\n' },
       
-      // Emphasis
-      { pattern: /\*\*([^*]+)\*\*/g, replacement: '*$1*' },  // Bold
-      { pattern: /\*([^*]+)\*/g, replacement: '_$1_' },      // Italic
-      { pattern: /__([^_]+)__/g, replacement: '*$1*' },      // Bold (alternate)
-      { pattern: /_([^_]+)_/g, replacement: '_$1_' },        // Italic (alternate)
-      
-      // Lists
-      { pattern: /^- (.+)$/gm, replacement: '* $1' },        // Unordered list
-      { pattern: /^\* (.+)$/gm, replacement: '* $1' },       // Unordered list (alternate)
-      { pattern: /^(\d+)\. (.+)$/gm, replacement: '# $2' },  // Ordered list
-      
+      // Emphasis (bold uses placeholder \x00 to prevent italic re-matching)
+      { pattern: /\*\*([^*]+)\*\*/g, replacement: '\x00$1\x00' },  // Bold -> placeholder
+      { pattern: /__([^_]+)__/g, replacement: '\x00$1\x00' },      // Bold (alternate) -> placeholder
+      { pattern: /(?<!\*)\*(?!\*)([^*]+?)(?<!\*)\*(?!\*)/g, replacement: '_$1_' },  // Italic
+      { pattern: /(?<!_)_(?!_)([^_]+?)(?<!_)_(?!_)/g, replacement: '_$1_' },        // Italic (alternate)
+      { pattern: /\x00([^\x00]+)\x00/g, replacement: '*$1*' },     // Placeholder -> Textile bold
+
+      // Task lists (must come before general lists)
+      { pattern: /^(\s*)[-*] \[x\] (.+)$/gmi, replacement: (match, indent, text) => {
+        const level = Math.floor(indent.length / 2) + 1;
+        return '*'.repeat(level) + ' {color:green}(/){color} ' + text;
+      }},
+      { pattern: /^(\s*)[-*] \[ \] (.+)$/gm, replacement: (match, indent, text) => {
+        const level = Math.floor(indent.length / 2) + 1;
+        return '*'.repeat(level) + ' {color:red}(x){color} ' + text;
+      }},
+
+      // Lists (nested + flat)
+      { pattern: /^(\s*)[-*] (.+)$/gm, replacement: (match, indent, text) => {
+        const level = Math.floor(indent.length / 2) + 1;
+        return '*'.repeat(level) + ' ' + text;
+      }},
+      { pattern: /^(\s*)(\d+)\. (.+)$/gm, replacement: (match, indent, num, text) => {
+        const level = Math.floor(indent.length / 2) + 1;
+        return '#'.repeat(level) + ' ' + text;
+      }},
+
+      // Images (must come before links so ![alt](url) is not matched as link)
+      { pattern: /!\[([^\]]*)\]\(([^)]+)\)/g, replacement: '!$2($1)!' },
+
       // Links
       { pattern: /\[([^\]]+)\]\(([^)]+)\)/g, replacement: '"$1":$2' },
       
-      // Images
-      { pattern: /!\[([^\]]+)\]\(([^)]+)\)/g, replacement: '!$2($1)!' },
-      
-      // Code
-      { pattern: /`([^`]+)`/g, replacement: '@$1@' },        // Inline code
-      
-      // Code blocks
+      // Code blocks (must come before inline code)
       { pattern: /```(\w+)?\n([\s\S]+?)\n```/gm, replacement: function(match, lang, code) {
         if (lang) {
           return `bc(${lang}). ${code.trim()}\n`;
@@ -40,18 +53,31 @@ class MarkdownToTextile {
           return `bc. ${code.trim()}\n`;
         }
       }},
+
+      // Inline code
+      { pattern: /`([^`]+)`/g, replacement: '@$1@' },
       
-      // Blockquotes
+      // Blockquotes (nested: >> -> bq.. with depth, single: > -> bq.)
+      { pattern: /^(>{2,}) (.+)$/gm, replacement: (match, arrows, text) => {
+        return 'bq(' + arrows.length + '). ' + text;
+      }},
       { pattern: /^> (.+)$/gm, replacement: 'bq. $1' },
-      
+
+      // Footnotes
+      { pattern: /\[\^(\d+)\]:\s*(.+)$/gm, replacement: 'fn$1. $2' },
+      { pattern: /\[\^(\d+)\]/g, replacement: '[$1]' },
+
+      // Definition lists
+      { pattern: /^([^\n]+)\n: (.+)$/gm, replacement: '- $1 := $2' },
+
       // Horizontal rule
       { pattern: /^---$/gm, replacement: '---' },
-      
+
       // Strikethrough
       { pattern: /~~(.+?)~~/g, replacement: '-$1-' },
       
-      // Tables - convert markdown tables to textile format
-      { pattern: /^\|[^\n]*\|(?:\n\|[\s\-\:\|]*\|)?(?:\n\|[^\n]*\|)*/gm, replacement: (match) => this.convertTable(match) },
+      // Tables - match consecutive lines starting and ending with |
+      { pattern: /(?:^\|.+\|$\n?)+/gm, replacement: (match) => this.convertTable(match) },
     ];
   }
   
@@ -72,8 +98,8 @@ class MarkdownToTextile {
     let dataStartIndex = 1;
     let alignments = [];
     
-    // Check if second line is a separator
-    if (lines[1] && /^\|[\s\-\:]+\|$/.test(lines[1])) {
+    // Check if second line is a separator (e.g. |------|:----:|-----:|)
+    if (lines[1] && /^\|[\s\-\:\|]+\|$/.test(lines[1])) {
       const separatorRow = lines[1];
       dataStartIndex = 2;
       
@@ -123,22 +149,32 @@ class MarkdownToTextile {
   }
   
   /**
+   * Maximum input length to prevent ReDoS / excessive processing
+   */
+  static MAX_INPUT_LENGTH = 500000;
+
+  /**
    * Convert Markdown text to Textile
    * @param {string} markdownText - The markdown text to convert
    * @return {string} - The converted textile text
+   * @throws {Error} If input is not a string or exceeds size limit
    */
   convert(markdownText) {
+    if (typeof markdownText !== 'string') {
+      throw new Error('Input must be a string');
+    }
+
+    if (markdownText.length > MarkdownToTextile.MAX_INPUT_LENGTH) {
+      throw new Error(`Input exceeds maximum length of ${MarkdownToTextile.MAX_INPUT_LENGTH} characters`);
+    }
+
     let textileText = markdownText;
-    
+
     // Apply each conversion rule
     this.rules.forEach(rule => {
-      if (typeof rule.replacement === 'function') {
-        textileText = textileText.replace(rule.pattern, rule.replacement);
-      } else {
-        textileText = textileText.replace(rule.pattern, rule.replacement);
-      }
+      textileText = textileText.replace(rule.pattern, rule.replacement);
     });
-    
+
     return textileText;
   }
 }

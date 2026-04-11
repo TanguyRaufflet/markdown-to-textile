@@ -29,6 +29,46 @@ label {
   color: #555;
 }
 
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.label-row label {
+  margin-bottom: 0;
+}
+
+.toggle-label {
+  font-weight: normal;
+  font-size: 12px;
+  color: #777;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-label input[type="checkbox"] {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+#history-select {
+  font-size: 12px;
+  padding: 2px 6px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: white;
+  color: #555;
+  cursor: pointer;
+  max-width: 180px;
+}
+
+#history-select:empty,
+#history-select option:disabled {
+  color: #999;
+}
+
 textarea {
   width: 100%;
   box-sizing: border-box;
@@ -81,6 +121,19 @@ button {
   cursor: not-allowed;
 }
 
+#send-to-tab {
+  background-color: #f4b400;
+}
+
+#send-to-tab:hover {
+  background-color: #d9a000;
+}
+
+#send-to-tab:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
 #clear-btn {
   background-color: #db4437;
 }
@@ -95,4 +148,15 @@ button {
   text-align: center;
   color: #4285f4;
   font-size: 14px;
+  transition: opacity 0.3s;
+}
+
+button.flash {
+  animation: btn-flash 0.3s ease;
+}
+
+@keyframes btn-flash {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.4); }
+  100% { filter: brightness(1); }
 }

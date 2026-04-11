@@ -1,15 +1,21 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Markdown to Textile Converter",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Converts Markdown text to Textile format",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "markdown-to-textile@converter",
+      "strict_min_version": "109.0"
+    }
+  },
   "icons": {
     "48": "icons/icon-48.png",
     "96": "icons/icon-96.png"
   },
   "permissions": [
-    "contextMenus", 
-    "clipboardWrite", 
+    "contextMenus",
+    "clipboardWrite",
     "activeTab"
   ],
   "optional_permissions": [
@@ -25,9 +31,15 @@
     }
   ],
   "web_accessible_resources": [
-    "markdown-to-textile.js"
+    {
+      "resources": ["markdown-to-textile.js"],
+      "matches": ["<all_urls>"]
+    }
   ],
-  "browser_action": {
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'"
+  },
+  "action": {
     "default_icon": {
       "19": "icons/icon-19.png",
       "38": "icons/icon-38.png"

@@ -4,14 +4,8 @@ let lastActiveElement = null;
 let lastSelectionStart = 0;
 let lastSelectionEnd = 0;
 
-// Create an instance of our converter
-let converter = null;
-
-// Load the converter script
-(function loadConverter() {
-  // Create an instance of the converter directly
-  converter = new MarkdownToTextile();
-})();
+// Single converter instance
+const converter = new MarkdownToTextile();
 
 // Store selection information when text is selected
 document.addEventListener('mouseup', function(e) {
@@ -44,69 +38,53 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Function to convert text and replace selected text
 function convertAndReplace(markdownText) {
-  if (!converter) {
-    // If the converter isn't loaded yet, create a new instance
-    converter = new MarkdownToTextile();
-  }
-  
   const textileText = converter.convert(markdownText);
-  
-  // Try to replace text in the active element
   const activeElement = lastActiveElement;
-  
-  // Check if we have an active textarea or input
-  if (activeElement && (activeElement.isContentEditable || 
-      activeElement.tagName === 'TEXTAREA' || 
-      activeElement.tagName === 'INPUT')) {
-      
-    // For textarea and input elements
-    if (typeof lastSelectionStart === 'number' && typeof lastSelectionEnd === 'number') {
-      try {
-        // Get the current value
-        const value = activeElement.value || '';
-        
-        // Create updated text
-        const newValue = value.substring(0, lastSelectionStart) + 
-                        textileText + 
-                        value.substring(lastSelectionEnd);
-        
-        // Update the value
-        activeElement.value = newValue;
-        
-        // Position cursor at the end of inserted text
-        activeElement.selectionStart = lastSelectionStart + textileText.length;
-        activeElement.selectionEnd = lastSelectionStart + textileText.length;
-        
-        // Make sure the element is still in focus
-        activeElement.focus();
-        
-        // Trigger input event for React and other frameworks
-        const inputEvent = new Event('input', { bubbles: true });
-        activeElement.dispatchEvent(inputEvent);
-        
-        // Trigger change event
-        const changeEvent = new Event('change', { bubbles: true });
-        activeElement.dispatchEvent(changeEvent);
-        
-        // Show success notification
-        showNotification("Text converted and replaced");
-        return;
-      } catch (err) {
-        console.error('Error replacing text in textarea:', err);
-      }
-    }
-  } else if (activeElement && activeElement.isContentEditable) {
-    // For contentEditable elements
+
+  // Replace in textarea or input elements
+  if (activeElement && (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT') &&
+      typeof lastSelectionStart === 'number' && typeof lastSelectionEnd === 'number') {
     try {
-      document.execCommand('insertText', false, textileText);
+      const value = activeElement.value || '';
+      activeElement.value = value.substring(0, lastSelectionStart) +
+                            textileText +
+                            value.substring(lastSelectionEnd);
+
+      // Position cursor at the end of inserted text
+      const cursorPos = lastSelectionStart + textileText.length;
+      activeElement.selectionStart = cursorPos;
+      activeElement.selectionEnd = cursorPos;
+      activeElement.focus();
+
+      // Trigger events for React and other frameworks
+      activeElement.dispatchEvent(new Event('input', { bubbles: true }));
+      activeElement.dispatchEvent(new Event('change', { bubbles: true }));
+
+      showNotification("Text converted and replaced");
+      return;
+    } catch (err) {
+      console.error('Error replacing text in textarea:', err);
+    }
+  }
+
+  // Replace in contentEditable elements
+  if (activeElement && activeElement.isContentEditable) {
+    try {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(document.createTextNode(textileText));
+        range.collapse(false);
+      }
       showNotification("Text converted and replaced");
       return;
     } catch (err) {
       console.error('Error replacing text in contentEditable:', err);
     }
   }
-  
-  // If we couldn't replace directly, copy to clipboard as fallback
+
+  // Fallback: copy to clipboard
   navigator.clipboard.writeText(textileText)
     .then(() => {
       showNotification("Converted text copied to clipboard");
@@ -119,13 +97,8 @@ function convertAndReplace(markdownText) {
 
 // Function to convert text and copy to clipboard
 function convertAndCopy(markdownText) {
-  if (!converter) {
-    converter = new MarkdownToTextile();
-  }
-  
   const textileText = converter.convert(markdownText);
-  
-  // Copy to clipboard
+
   navigator.clipboard.writeText(textileText)
     .then(() => {
       showNotification("Converted and copied to clipboard!");

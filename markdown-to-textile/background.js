@@ -1,19 +1,11 @@
-// Initialize the context menu when the extension starts
-function initializeContextMenu() {
+// Create the context menu when the extension is installed or updated
+browser.runtime.onInstalled.addListener(() => {
   browser.contextMenus.create({
     id: "convert-md-to-textile",
     title: "Convert Markdown to Textile",
     contexts: ["selection"],
   });
-}
-
-// Create the context menu when the extension is installed
-browser.runtime.onInstalled.addListener(() => {
-  initializeContextMenu();
 });
-
-// Ensure the context menu exists when the browser starts
-initializeContextMenu();
 
 // Listen for context menu clicks
 browser.contextMenus.onClicked.addListener((info, tab) => {
