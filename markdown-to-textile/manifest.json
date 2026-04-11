@@ -5,7 +5,7 @@
   "description": "Converts Markdown text to Textile format",
   "browser_specific_settings": {
     "gecko": {
-      "id": "markdown-to-textile@converter",
+      "id": "{1dcad2e7-cfe4-4813-b355-b274755b2cd6}",
       "strict_min_version": "109.0"
     }
   },
