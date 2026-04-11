@@ -7,17 +7,23 @@ A Firefox extension that allows you to easily convert Markdown text to Textile f
 - Convert selected Markdown text to Textile with a single right-click
 - Built-in popup interface for converting larger pieces of text
 - Works in text areas, input fields, and contentEditable elements
+- **Live Preview** mode with real-time conversion as you type
+- **Keyboard shortcut** Ctrl+Enter for quick conversion
+- **Send to Tab** button to insert converted text into active page
+- **Conversion history** with last 10 entries
 - Supports common Markdown elements:
-  - Headers
-  - Emphasis (bold/italic)
-  - Lists (ordered/unordered)
-  - Links
-  - Images
-  - Code blocks
-  - Blockquotes
+  - Headers (h1-h6)
+  - Emphasis (bold/italic, including nested)
+  - Lists (ordered/unordered, nested)
+  - Task lists (`- [x]` / `- [ ]`)
+  - Links and images
+  - Inline code and code blocks (with language support)
+  - Blockquotes (single and nested)
+  - Footnotes
+  - Definition lists
+  - Tables with alignment
   - Horizontal rules
   - Strikethrough
-  - Basic tables
 
 ## Installation
 
@@ -48,8 +54,10 @@ Visit the [Add-on page](https://addons.mozilla.org/de/firefox/addon/markdown-to-
 
 1. Click the extension icon in the Firefox toolbar
 2. Enter or paste Markdown text in the top textarea
-3. Click "Convert" to transform it to Textile
-4. Use the "Copy to Clipboard" button to copy the result
+3. Click "Convert" (or press Ctrl+Enter) to transform it to Textile
+4. Enable "Live Preview" for real-time conversion while typing
+5. Use "Copy to Clipboard" or "Send to Tab" for the result
+6. Access previous conversions via the History dropdown
 
 ## Examples
 
@@ -62,6 +70,10 @@ Visit the [Add-on page](https://addons.mozilla.org/de/firefox/addon/markdown-to-
 | ``` `code` ``` | `@code@` |
 | ` ```code``` ` | `bc. code` |
 | `> quote` | `bq. quote` |
+| `>> nested` | `bq(2). nested` |
+| `- [x] done` | `* {color:green}(/){color} done` |
+| `[^1]` | `[1]` (footnote ref) |
+| `Term\n: Def` | `- Term := Def` |
 | Tables | Textile tables with alignment |
 
 ## Development
@@ -125,22 +137,14 @@ web-ext run --source-dir=./markdown-to-textile
 
 ### Testing
 
-The project includes comprehensive test examples and a test runner:
+The project includes 48 assertion-based tests across 14 suites:
 
 ```bash
 # Run all conversion tests
 npm test
-
-# Interactive testing mode
-npm run test:interactive
-
-# View test examples
-cat test-examples.md
 ```
 
-Test files:
-- `test-examples.md` - Comprehensive Markdown examples for testing
-- `test-runner.js` - Automated test runner with expected results
+Test suites cover: Headers, Emphasis, Lists (flat + nested), Task lists, Links/Images, Code (inline + blocks), Blockquotes, Footnotes, Definition lists, Tables, Input validation, and Mixed content.
 
 ### Extension Structure
 
