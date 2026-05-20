@@ -48,7 +48,7 @@ class MarkdownToTextile {
       // Code blocks (must come before inline code)
       { pattern: /```(\w+)?\n([\s\S]+?)\n```/gm, replacement: function(match, lang, code) {
         if (lang) {
-          return `bc(${lang}). ${code.trim()}\n`;
+          return `<pre><code class="${lang}">\n${code.trim()}\n</code></pre>`;
         } else {
           return `bc. ${code.trim()}\n`;
         }
